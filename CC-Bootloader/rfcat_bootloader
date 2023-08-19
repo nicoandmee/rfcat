@@ -23,16 +23,16 @@ def download_code(ihx_file, serial_port):
       print("Writing", line[:-1].decode(), end='')
       serial_port.write(line)
       rc = serial_port.read()
-      print(" RC = " + rc.decode(), end='')
+      print(f" RC = {rc.decode()}", end='')
       if rc in bootloader_error_codes:
-        print("(%s)" % bootloader_error_codes[rc])
+        print(f"({bootloader_error_codes[rc]})")
       else:
         print("(Unknown Error)")
       if (rc != b'0'):
         print("Error downloading code!")
         return False
     else:
-      print("Skipping non data record: '{}'".format(line[:-1].decode()))
+      print(f"Skipping non data record: '{line[:-1].decode()}'")
   return True
 
 def verify_code(ihx_file, serial_port):
@@ -44,24 +44,21 @@ def verify_code(ihx_file, serial_port):
       start_addr = int(line[3:7], 16)
       data = line[9:9+(length*2)]
       # first time around, check if we can only read 16 byte chunks
-      if can_read_any == None:
+      if can_read_any is None:
         can_read_any = False
         do_flash_read(serial_port, start_addr, 1)
         for read_data in serial_port:
           read_data = read_data.strip()
           if not read_data:
             continue
-          if not read_data == b":00000001FF":
+          if read_data != b":00000001FF":
             can_read_any = True
           else:
             break
         if not can_read_any:
           print("*** warning! this version of CC-Bootloader can only read 16 byte blocks!")
           print("*** upgrade recommended!")
-      if can_read_any:
-        block_length= length
-      else:
-        block_length= ((length // 16) + 1) * 16
+      block_length = length if can_read_any else ((length // 16) + 1) * 16
       print("\r                                               ", end='')
       print("\rVerifying %04d bytes at address: %04X" % (length, start_addr), end='')
       do_flash_read(serial_port, start_addr, block_length)
@@ -79,7 +76,7 @@ def verify_code(ihx_file, serial_port):
         exit(1)
       sys.stdout.flush()
     else:
-      print("\nSkipping non data record: '{}'".format(line[:-1].decode()))
+      print(f"\nSkipping non data record: '{line[:-1].decode()}'")
   return True
 
 def run_user_code(serial_port):
@@ -90,9 +87,9 @@ def run_user_code(serial_port):
 def reset_bootloader(serial_port):
   serial_port.write(b":00000022DE\n")
   rc = serial_port.read()
-  print("RC = " + rc.decode(), end='')
+  print(f"RC = {rc.decode()}", end='')
   if rc in bootloader_error_codes:
-    print("(%s)" % bootloader_error_codes[rc])
+    print(f"({bootloader_error_codes[rc]})")
   else:
     print("(Unknown Error)")
   if (rc != b'0'):
@@ -103,9 +100,9 @@ def reset_bootloader(serial_port):
 def erase_all_user(serial_port):
   serial_port.write(b":00000023DD\n")
   rc = serial_port.read()
-  print("RC = " + rc.decode(), end='')
+  print(f"RC = {rc.decode()}", end='')
   if rc in bootloader_error_codes:
-    print("(%s)" % bootloader_error_codes[rc])
+    print(f"({bootloader_error_codes[rc]})")
   else:
     print("(Unknown Error)")
   if (rc != b'0'):
@@ -117,9 +114,9 @@ def erase_user_page(serial_port, page):
   chksum = (0xDB + 0x100 - page) & 0xFF
   serial_port.write(b":01000024%02X%02X\n" % (page, chksum))
   rc = serial_port.read()
-  print("RC = " + rc.decode(), end='')
+  print(f"RC = {rc.decode()}", end='')
   if rc in bootloader_error_codes:
-    print("(%s)" % bootloader_error_codes[rc])
+    print(f"({bootloader_error_codes[rc]})")
   else:
     print("(Unknown Error)")
   if (rc != b'0'):
@@ -140,7 +137,7 @@ def do_flash_read(serial_port, start_addr, length):
 def flash_read(ihx_file, serial_port, start_addr, length):
   do_flash_read(serial_port, start_addr, length)
   for line in serial_port:
-    if not line == b"\n":
+    if line != b"\n":
       if(ihx_file):
         ihx_file.write(line)
       else:
@@ -202,7 +199,7 @@ if __name__ == '__main__':
   if (len(sys.argv) < 3):
     print_usage()
     sys.exit(1)
-    
+
   serial_port_name = sys.argv[1]
   command = sys.argv[2]
   options = sys.argv[3:]
@@ -222,9 +219,9 @@ if __name__ == '__main__':
           sys.excepthook(*sys.exc_info())
           print(e)
           exit (-1)
-  
+
   try:
-    if (command == 'download' or command == 'verify'):
+    if command in ['download', 'verify']:
       if (len(options) < 1):
         print_usage()
       else:
@@ -234,22 +231,22 @@ if __name__ == '__main__':
           download_code(ihx_file, serial_port)
         else:
           verify_code(ihx_file, serial_port)
-        
+
     elif (command == 'run'):
       run_user_code(serial_port)
-      
+
     elif (command == 'reset'):
       reset_bootloader(serial_port)
-      
+
     elif (command == 'erase_all'):
       erase_all_user(serial_port)
-      
+
     elif (command == 'erase'):
       if (len(options) < 1):
         print_usage()
       else:
         erase_user_page(serial_port, int(options[0]))
-        
+
     elif (command == 'read'):
       if (len(options) < 2):
         print_usage()
@@ -264,7 +261,7 @@ if __name__ == '__main__':
             print("couldn't open output file:"), ihx_filename
             exit(2)
         flash_read(ihx_file, serial_port, int(options[0], 16), int(options[1], 16))
-        
+
     else:
       print_usage()
   finally:

@@ -36,6 +36,7 @@
 @author     Alexander Belchenko (bialix AT ukr net)
 @version    1.1
 '''
+
 from __future__ import division, print_function
 
 from builtins import bytes
@@ -55,10 +56,7 @@ from .bits import correctbytes
 
 
 # the Python 2 integer types int and long have been unified in Python 3
-if sys.version_info < (3,):
-    integer_types = (int, long,)
-else:
-    integer_types = (int,)
+integer_types = (int, long) if sys.version_info < (3,) else (int, )
 
 
 class IntelHex(object):
@@ -107,18 +105,17 @@ class IntelHex(object):
         if not s:
             return          # empty line
 
-        if s[0] == ':':
-            try:
-                bin = array('B', unhexlify(s[1:]))
-            except TypeError:
-                # this might be raised by unhexlify when odd hexascii digits
-                raise HexRecordError(line=line)
-            length = len(bin)
-            if length < 5:
-                raise HexRecordError(line=line)
-        else:
+        if s[0] != ':':
             raise HexRecordError(line=line)
 
+        try:
+            bin = array('B', unhexlify(s[1:]))
+        except TypeError:
+            # this might be raised by unhexlify when odd hexascii digits
+            raise HexRecordError(line=line)
+        length = len(bin)
+        if length < 5:
+            raise HexRecordError(line=line)
         record_length = bin[0]
         if length != (5 + record_length):
             raise RecordLengthError(line=line)
@@ -138,12 +135,12 @@ class IntelHex(object):
             # data record
             addr += self._offset
             for i in range(4, 4+record_length):
-                if not self._buf.get(addr, None) is None:
+                if self._buf.get(addr, None) is not None:
                     raise AddressOverlapError(address=addr, line=line)
                 self._buf[addr] = bin[i]
                 addr += 1   # FIXME: addr should be wrapped 
-                            # BUT after 02 record (at 64K boundary)
-                            # and after 04 record (at 4G boundary)
+                                    # BUT after 02 record (at 64K boundary)
+                                    # and after 04 record (at 4G boundary)
 
         elif record_type == 1:
             # end of file record
@@ -157,12 +154,6 @@ class IntelHex(object):
                 raise ExtendedSegmentAddressRecordError(line=line)
             self._offset = (bin[4]*256 + bin[5]) * 16
 
-        elif record_type == 4:
-            # Extended Linear Address Record
-            if record_length != 2 or addr != 0:
-                raise ExtendedLinearAddressRecordError(line=line)
-            self._offset = (bin[4]*256 + bin[5]) * 65536
-
         elif record_type == 3:
             # Start Segment Address Record
             if record_length != 4 or addr != 0:
@@ -172,6 +163,12 @@ class IntelHex(object):
             self.start_addr = {'CS': bin[4]*256 + bin[5],
                                'IP': bin[6]*256 + bin[7],
                               }
+
+        elif record_type == 4:
+            # Extended Linear Address Record
+            if record_length != 2 or addr != 0:
+                raise ExtendedLinearAddressRecordError(line=line)
+            self._offset = (bin[4]*256 + bin[5]) * 65536
 
         elif record_type == 5:
             # Start Linear Address Record
@@ -364,7 +361,7 @@ class IntelHex(object):
         @return         dict suitable for initializing another IntelHex object.
         '''
         r = {}
-        r.update(self._buf)
+        r |= self._buf
         if self.start_addr:
             r['start_addr'] = self.start_addr
         return r
@@ -373,29 +370,21 @@ class IntelHex(object):
         '''Returns all used addresses in sorted order.
         @return         list of occupied data addresses in sorted order. 
         '''
-        aa = list(self._buf.keys())
-        aa.sort()
-        return aa
+        return sorted(self._buf.keys())
 
     def minaddr(self):
         '''Get minimal address of HEX content.
         @return         minimal address or None if no data
         '''
         aa = list(self._buf.keys())
-        if aa == []:
-            return None
-        else:
-            return min(aa)
+        return None if not aa else min(aa)
 
     def maxaddr(self):
         '''Get maximal address of HEX content.
         @return         maximal address or None if no data
         '''
         aa = list(self._buf.keys())
-        if aa == []:
-            return None
-        else:
-            return max(aa)
+        return None if not aa else max(aa)
 
     def __getitem__(self, addr):
         ''' Get requested byte from address.
@@ -422,7 +411,7 @@ class IntelHex(object):
                         ih[i] = x
             return ih
         else:
-            raise TypeError('Address has unsupported type: %s' % t)
+            raise TypeError(f'Address has unsupported type: {t}')
 
     def __setitem__(self, addr, byte):
         """Set byte at address."""
@@ -453,12 +442,10 @@ class IntelHex(object):
                 raise TypeError('start address cannot be negative')
             if stop < 0:
                 raise TypeError('stop address cannot be negative')
-            j = 0
-            for i in range(start, stop, step):
+            for j, i in enumerate(range(start, stop, step)):
                 self._buf[i] = byte[j]
-                j += 1
         else:
-            raise TypeError('Address has unsupported type: %s' % t)
+            raise TypeError(f'Address has unsupported type: {t}')
 
     def __delitem__(self, addr):
         """Delete byte at address."""
@@ -468,8 +455,7 @@ class IntelHex(object):
                 raise TypeError('Address should be >= 0.')
             del self._buf[addr]
         elif t == slice:
-            addresses = list(self._buf.keys())
-            if addresses:
+            if addresses := list(self._buf.keys()):
                 addresses.sort()
                 start = addr.start or addresses[0]
                 stop = addr.stop or (addresses[-1]+1)
@@ -479,7 +465,7 @@ class IntelHex(object):
                     if x is not None:
                         del self._buf[i]
         else:
-            raise TypeError('Address has unsupported type: %s' % t)
+            raise TypeError(f'Address has unsupported type: {t}')
 
     def __len__(self):
         """Return count of bytes with real values."""

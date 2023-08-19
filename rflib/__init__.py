@@ -16,7 +16,7 @@ MAX_FREQ = 936e6
 class RfCat(FHSSNIC):
     def RFdump(self, msg="Receiving", maxnum=100, timeoutms=1000):
         try:
-            for x in range(maxnum):
+            for _ in range(maxnum):
                 y, t = self.RFrecv(timeoutms)
                 print("(%5.3f) %s:  %s" % (t, msg, hexlify(y)))
         except ChipconUsbTimeoutException:
@@ -111,10 +111,7 @@ class RfCat(FHSSNIC):
             fd0i, = fdtup
             fd0o, = fdtup
 
-        fdsock = False      # socket or fileio?
-        if hasattr(fd0i, 'recv'):
-            fdsock = True
-
+        fdsock = bool(hasattr(fd0i, 'recv'))
         try:
             while True:
                 #if self._pause:
@@ -140,7 +137,7 @@ class RfCat(FHSSNIC):
                         #FIXME: probably want to take in a length struct here and then only send when we have that many bytes...
                         data = buf[:pktlen]
                         if use_rawinput:
-                            data = eval('"%s"'%data)
+                            data = eval(f'"{data}"')
 
                         if len(buf) >= pktlen:
                             self.RFxmit(data)
@@ -196,7 +193,6 @@ def cleanupInteractiveAtExit():
     try:
         if d.getDebugCodes():
            d.setModeIDLE()
-        pass
     except:
         pass
 
@@ -257,8 +253,5 @@ def interact(lcls, gbls):
 
 
 if __name__ == "__main__":
-    idx = 0
-    if len(sys.argv) > 1:
-        idx = int(sys.argv.pop())
-
+    idx = int(sys.argv.pop()) if len(sys.argv) > 1 else 0
     interactive(idx)

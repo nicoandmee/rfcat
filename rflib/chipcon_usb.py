@@ -41,10 +41,18 @@ def getRfCatDevices():
     for bus in usb.busses():
         for dev in bus.devices:
             # OpenMoko assigned or Legacy TI
-            if (dev.idVendor == 0x0451 and dev.idProduct == 0x4715) or (dev.idVendor == 0x1d50 and (dev.idProduct == 0x6047 or dev.idProduct == 0x6048 or dev.idProduct == 0x605b or dev.idProduct == 0xecc1)):
+            if (
+                (dev.idVendor == 0x0451 and dev.idProduct == 0x4715)
+                or dev.idVendor == 0x1D50
+                and dev.idProduct in [0x6047, 0x6048, 0x605B, 0xECC1]
+            ):
                 rfcats.append(dev)
 
-            elif (dev.idVendor == 0x1d50 and (dev.idProduct == 0x6049 or dev.idProduct == 0x604a or dev.idProduct == 0xecc0)):
+            elif dev.idVendor == 0x1D50 and dev.idProduct in [
+                0x6049,
+                0x604A,
+                0xECC0,
+            ]:
                 print("Already in Bootloader Mode... exiting")
                 exit(0)
 
@@ -157,16 +165,17 @@ class USBDongle(object):
             dongles.append((devnum, dev, do))
 
         dongles.sort()
-        if len(dongles) == 0:
+        if not dongles:
             raise Exception("No Dongle Found.  Please insert a RFCAT dongle.")
 
         # claim that interface!
         do = dongles[self.idx][2]
-        
+
         try:
             do.claimInterface(0)
         except Exception as e:
-            if console or self._debug: print(("Error claiming usb interface:" + repr(e)), file=sys.stderr)
+            if console or self._debug:
+                print(f"Error claiming usb interface:{repr(e)}", file=sys.stderr)
 
 
 
@@ -201,10 +210,10 @@ class USBDongle(object):
         self.chipnum = chip
         self.chipstr = chipstr
 
-        if chip == None:
+        if chip is None:
             print("Older firmware, consider upgrading.")
         else:
-            self.chipstr = "unrecognized dongle: %s" % chip
+            self.chipstr = f"unrecognized dongle: {chip}"
 
         if self._init_on_reconnect:
             if self._radio_configured:
@@ -220,7 +229,7 @@ class USBDongle(object):
             return
         if self._debug: print(("waiting (resetup) %x" % self.idx), file=sys.stderr)
 
-        while (self._do==None):
+        while self._do is None:
             try:
                 self.setup(console, copyDongle)
                 if copyDongle is None:
@@ -233,26 +242,24 @@ class USBDongle(object):
             except Exception as e:
                 #if console: sys.stderr.write('.')
                 if not self._quiet:
-                    print(("Error in resetup():" + repr(e)), file=sys.stderr)
+                    print(f"Error in resetup():{repr(e)}", file=sys.stderr)
                 #if console or self._debug: print("Error in resetup():" + repr(e), file=sys.stderr)
                 time.sleep(1)
 
 
     ########  BASE FOUNDATIONAL "HIDDEN" CALLS ########
     def _sendEP0(self, request=0, buf=None, value=0x200, index=0, timeout=DEFAULT_USB_TIMEOUT):
-        if buf == None:
+        if buf is None:
             buf = b'HELLO THERE'
         return self._do.controlMsg(USB_BM_REQTYPE_TGT_EP|USB_BM_REQTYPE_TYPE_VENDOR|USB_BM_REQTYPE_DIR_OUT, request, buf, value, index, timeout), buf
 
     def _recvEP0(self, request=0, length=64, value=0, index=0, timeout=100):
         retary = [b"%c"%x for x in self._do.controlMsg(USB_BM_REQTYPE_TGT_EP|USB_BM_REQTYPE_TYPE_VENDOR|USB_BM_REQTYPE_DIR_IN, request, length, value, index, timeout)]
-        if len(retary):
-            return b''.join(retary)
-        return b""
+        return b''.join(retary) if len(retary) else b""
 
     def _sendEP5(self, buf=None, timeout=DEFAULT_USB_TIMEOUT):
         global direct
-        if (buf==None):
+        if buf is None:
             buf = b"\xff\x82\x07\x00ABCDEFG"
         if direct:
             self._do.bulkWrite(5, buf, timeout)
@@ -262,13 +269,15 @@ class USBDongle(object):
             drain = buf[:self._usbmaxo]
             buf = buf[self._usbmaxo:]
 
-            if self._debug: print("XMIT:"+repr(drain), file=sys.stderr)
+            if self._debug:
+                print(f"XMIT:{repr(drain)}", file=sys.stderr)
             try:
                 numwrt = self._do.bulkWrite(5, drain, timeout)
                 if numwrt != len(drain):
                     raise Exception("Didn't write all the data!? Sent: %d != Queued: %d.  REqueuing!(this may be the wrong thing to do, swat me if so)" % (numwrt, len(drain)))
             except Exception as e:
-                if self._debug: print("requeuing on error '%s' (%s)" % (repr(drain), e), file=sys.stderr)
+                if self._debug:
+                    print(f"requeuing on error '{repr(drain)}' ({e})", file=sys.stderr)
                 self.xsema.acquire()
                 msg = self.xmit_queue.insert(0, drain)
                 self.xmit_event.set()
@@ -277,10 +286,9 @@ class USBDongle(object):
         
     def _recvEP5(self, timeout=100):
         retary = [b"%c"%x for x in self._do.bulkRead(0x85, 500, timeout)]
-        if self._debug: print("RECV:"+repr(retary), file=sys.stderr)
-        if len(retary):
-            return b''.join(retary)
-        return b''
+        if self._debug:
+            print(f"RECV:{repr(retary)}", file=sys.stderr)
+        return b''.join(retary) if len(retary) else b''
 
     def _clear_buffers(self, clear_recv_mbox=False):
         threadGoSet = self._threadGo.isSet()
@@ -318,14 +326,13 @@ class USBDongle(object):
                     msg = self.xmit_queue.pop(0)
                     if not len(self.xmit_queue): # if there was only one message
                         self.xmit_event.clear() # clear the queue, within the lock
-                    
+
                     self.xsema.release()
 
                     self._sendEP5(msg)
                     msgsent = True
 
-                else:
-                    if self._debug>3: sys.stderr.write("NoMsgToSend ")
+                elif self._debug>3: sys.stderr.write("NoMsgToSend ")
             except:
                 sys.excepthook(*sys.exc_info())
 

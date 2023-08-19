@@ -39,7 +39,7 @@ class v_prim(v_base):
         Parser for primitives which assumes we are
         calling parse directly.
         """
-        fmt = "<%s" % self.vsGetFormat()
+        fmt = f"<{self.vsGetFormat()}"
         val = struct.unpack(fmt, bytes)[0]
         self.vsSetParsedValue(val)
 
@@ -245,7 +245,7 @@ class v_bytes(v_prim):
 
     def __init__(self, size=0, vbytes=None):
         v_prim.__init__(self)
-        if vbytes == None:
+        if vbytes is None:
             vbytes = '\x00' * size
         self._vs_length = len(vbytes)
         self._vs_value = vbytes

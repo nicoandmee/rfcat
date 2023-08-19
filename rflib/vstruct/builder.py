@@ -68,7 +68,7 @@ class VStructBuilder:
         return self._vs_namespaces.get(namespace, None) != None
 
     def getVStructNames(self, namespace=None):
-        if namespace == None:
+        if namespace is None:
             return list(self._vs_defs.keys())
         nsmod = self._vs_namespaces.get(namespace)
         ret = []
@@ -89,21 +89,21 @@ class VStructBuilder:
         parts = vsname.split('.', 1)
         if len(parts) == 2:
             ns = self._vs_namespaces.get(parts[0])
-            if ns == None:
-                raise Exception('Namespace %s is not present! (need symbols?)' % parts[0])
+            if ns is None:
+                raise Exception(f'Namespace {parts[0]} is not present! (need symbols?)')
 
             # If a module gets added as a namespace, assume it has a class def...
             if isinstance(ns, types.ModuleType):
                 cls = getattr(ns, parts[1])
-                if cls == None:
-                    raise Exception('Unknown VStruct Definition: %s' % vsname)
+                if cls is None:
+                    raise Exception(f'Unknown VStruct Definition: {vsname}')
                 return cls()
 
             return ns.buildVStruct(parts[1])
 
         vsdef = self._vs_defs.get(vsname)
-        if vsdef == None:
-            raise Exception('Unknown VStruct Definition: %s' % vsname)
+        if vsdef is None:
+            raise Exception(f'Unknown VStruct Definition: {vsname}')
 
         vsname, vssize, vskids = vsdef
 
@@ -124,15 +124,15 @@ class VStructBuilder:
                     raise Exception('Invalid Pointer Width: %d' % fsize)
 
             elif fflags & VSFF_ARRAY:
-                if ftypename != None:
-                    fieldval = vstruct.VArray()
-                    while len(fieldval) < fsize:
-                        fieldval.vsAddElement( self.buildVStruct(ftypename) )
-                else:
+                if ftypename is None:
                 # FIXME actually handle arrays!
                     fieldval = vs_prim.v_bytes(size=fsize)
 
-            elif ftypename == None:
+                else:
+                    fieldval = vstruct.VArray()
+                    while len(fieldval) < fsize:
+                        fieldval.vsAddElement( self.buildVStruct(ftypename) )
+            elif ftypename is None:
 
                 if fsize not in [1,2,4,8]:
                     #print 'Primitive Field Size: %d' % fsize
@@ -157,8 +157,7 @@ class VStructBuilder:
         return vs
 
     def genVStructPyCode(self):
-        ret = 'import vstruct\n'
-        ret += 'from vstruct.primitives import *'
+        ret = 'import vstruct\n' + 'from vstruct.primitives import *'
         ret += '\n\n'
 
         for ename, esize, ekids in list(self._vs_enums.values()):
@@ -191,12 +190,12 @@ class VStructBuilder:
                         fconst = 'v_bytes(size=%d) # FIXME should be pointer!' % fsize
 
                 elif fflags & VSFF_ARRAY:
-                    if ftypename != None:
-                        '[ %s() for i in xrange( %d / len(%s())) ]' % (ftypename, fsize, ftypename)
-                    else:
+                    if ftypename is None:
                         fconst = 'v_bytes(size=%d) # FIXME Unknown Array Type' % fsize
 
-                elif ftypename == None:
+                    else:
+                        '[ %s() for i in xrange( %d / len(%s())) ]' % (ftypename, fsize, ftypename)
+                elif ftypename is None:
                     if fsize == 1:
                         fconst = 'v_uint8()'
                     elif fsize == 2:
@@ -208,7 +207,7 @@ class VStructBuilder:
                     else:
                         fconst = 'v_bytes(size=%d)' % fsize
                 else:
-                    fconst = '%s()' % ftypename
+                    fconst = f'{ftypename}()'
 
 
                 ret += '        self.%s = %s\n' % (fname, fconst)
@@ -244,6 +243,6 @@ if __name__ == '__main__':
     builder = VStructBuilder(defs=t, enums=e)
 
     print('# Version: %d.%d' % (osmajor, osminor))
-    print('# Architecture: %s' % archname)
+    print(f'# Architecture: {archname}')
     print(builder.genVStructPyCode())
 

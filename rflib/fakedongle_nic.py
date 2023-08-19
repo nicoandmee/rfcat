@@ -19,7 +19,7 @@ EP0BUFSIZE = 512
 
 class fakeMemory:
     def __init__(self, size=64*1024):
-        self.memory = [0 for x in range(size)]
+        self.memory = [0 for _ in range(size)]
         self.mmio = {}
         #self.mmio[X_RFST] = self.mmio_RFST
         #self.mmio[X_RFST] = self.mmio_MARCSTATE
@@ -55,12 +55,7 @@ class fakeMemory:
 
         # configure MARCSTATE
         val = ord(dbyte)
-        if val in (2, 3):
-            val = dbyte+10
-
-        else:
-            val = MARC_STATE_RX
-
+        val = dbyte+10 if val in {2, 3} else MARC_STATE_RX
         self.writeMemory(MARCSTATE, b'%c'%(val))
 
         # still set RFST
@@ -135,7 +130,7 @@ class fakeDongle:
     def __init__(self):
         self._recvbuf = b''
         self.bulk5 = queue.Queue()
-        self.bulk0 = [0 for x in range(EP0BUFSIZE)]
+        self.bulk0 = [0 for _ in range(EP0BUFSIZE)]
         self.memory = fakeMemory()
 
         self.start_ts = time.time()
@@ -143,7 +138,7 @@ class fakeDongle:
         self.ampMode = 0
         self.macdata = MAC_Data()
         self.NIC_ID = 0
-        self.g_txMsgQueue = ['\0'*(MAX_TX_MSGLEN+1) for x in range(MAX_TX_MSGS)]
+        self.g_txMsgQueue = ['\0'*(MAX_TX_MSGLEN+1) for _ in range(MAX_TX_MSGS)]
         self.g_Channels = b''
 
         self.memory.writeMemory(0xdf00, FAKE_MEM_DF00)
@@ -237,14 +232,13 @@ class fakeDongle:
                     if len(data) == 0:
                         logger.warning("SYS_CMD_RFMODE: need a byte to put in X_RFST!")
                     else:
-                        self.memory.writeMemory(X_RFST, data[0:1])
+                        self.memory.writeMemory(X_RFST, data[:1])
                     self.txdata(app, cmd, data)
 
                 else:
                     self.log(b'WTFO!  no APP_SYSTEM::0x%x', cmd)
                     self.bulk5.put(pkt)
 
-            # handle commands for the NIC app
             elif app == APP_NIC:
                 if cmd == NIC_GET_AES_MODE:
                     self.txdata(app, cmd, b'%c' % self.aesMode)
@@ -280,13 +274,11 @@ class fakeDongle:
                     # this is duplicating our work in transmit_long().  pick one.
                     if (macdata.mac_state != FHSS_STATE_NONHOPPING):
                         data[0] = RC_RF_MODE_INCOMPAT
-                        self.txdata(app, cmd, data[0])
-                   
                     else:
                         length, blocks = struct.unpack("<HB", data[:2])
                         txTotal= 0
                         data[0] = transmit_long(data[3:], length, blocks)
-                        self.txdata(app, cmd, data[0])
+                    self.txdata(app, cmd, data[0])
 
                 elif cmd == NIC_LONG_XMIT_MORE:
                     length = ord23(data[0])
@@ -303,25 +295,25 @@ class fakeDongle:
                             self.macdata.mac_state = FHSS_STATE_NONHOPPING
                             self.txdata(app, cmd, b'%c' % RC_TX_DROPPED_PACKET)
                             return
-                        
+
                         #LED = 0
                         self.macdata.mac_state = FHSS_STATE_NONHOPPING
                         self.debug("total bytes tx:")
                         #debughex16(txTotal)
                         self.txdata(app, cmd, b'%c' % LCE_NO_ERROR)
                         return
-                    
+
                     # catch if we've been called out of sequence, or we've had an underrun
                     if (self.macdata.mac_state != FHSS_STATE_LONG_XMIT):
                         self.debug("underrun")
                         # TX underrun
                         if(self.lastCode[1] == LCE_DROPPED_PACKET):
                             self.txdata(app, cmd, b'%c' % RC_TX_DROPPED_PACKET)
-                            
+
                         else:
                             self.lastCode[1] = LCE_RF_MULTI_BUFFER_NOT_INIT
                             self.txdata(app, cmd, b'%c' % RC_RF_MODE_INCOMPAT)
-                        
+
                         #LED = 0
                         #resetRFSTATE()
                         self.macdata.mac_state = FHSS_STATE_NONHOPPING
@@ -367,7 +359,7 @@ class fakeDongle:
                         self.macdata.txMsgIdx = 0;
 
                     self.txdata(app, cmd,  b'%c' % length)
-                    
+
                 elif cmd == FHSS_SET_CHANNELS:
                     self.macdata.NumChannels = ord23(data[0])
                     if (self.macdata.NumChannels <= MAX_CHANNELS):
@@ -420,12 +412,12 @@ class fakeDongle:
                 elif cmd == FHSS_START_SYNC:
                     #MAC_sync(data[0])
                     self.txdata(app, cmd, data[0]);
-                    
+
                 elif cmd == FHSS_SET_STATE:
                     # store the main timer value for beginning of this phase.
                     self.macdata.tLastStateChange = self.clock()
                     self.macdata.mac_state = ord23(data[0])
-                    
+
                     # if macdata.mac_state is > 2, make sure the T2 interrupt is set
                     # if macdata.mac_state <= 2, make sure T2 interrupt is ignored
                     if self.macdata.mac_state in (FHSS_STATE_NONHOPPING, FHSS_STATE_DISCOVERY, FHSS_STATE_SYNCHING):
@@ -436,12 +428,12 @@ class fakeDongle:
 
                     elif self.macdata.mac_state in (FHSS_STATE_SYNCHED, FHSS_STATE_SYNC_MASTER):
                         self.begin_hopping(0);
-                    
+
                     self.txdata(app, cmd, data[0]);
-                    
+
                 elif cmd == FHSS_GET_STATE:
                     self.txdata(app, cmd, self.macdata.mac_state)
-                    
+
                 else:
                     self.log(b'WTFO!  no APP_NIC::0x%x', cmd)
                     self.bulk5.put(pkt)

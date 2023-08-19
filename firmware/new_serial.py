@@ -8,21 +8,18 @@ sn_header = """// Serial number
 """
 
 try:
-    f = open('.serial', 'r')
-    ser = int(f.read(), 16) #+ 1
-    f.close()
+    with open('.serial', 'r') as f:
+        ser = int(f.read(), 16) #+ 1
 except IOError:
     ser = 0
 
 print("[--- new serial number: %.4x ---]" % ser, file=sys.stderr)
 
-f = open('.serial', 'w')
-f.write("%.4x" % ser)
-f.close()
-
+with open('.serial', 'w') as f:
+    f.write("%.4x" % ser)
 sertxt = "%.4x" % ser
 
 for c in sertxt:
     n = ord(c)
-    sys.stdout.write("%s,0," % n)
+    sys.stdout.write(f"{n},0,")
 

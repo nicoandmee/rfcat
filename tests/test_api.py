@@ -74,7 +74,7 @@ class TestApis(unittest.TestCase):
         self.d.getMARCSTATE()
 
         self.d.setEnableCCA()
-        
+
         self.d.setFreq(878e6)
         freq, freqnum = self.d.getFreq()
         self.assertAlmostEqual(freq, 878e6, delta=200)
@@ -86,7 +86,7 @@ class TestApis(unittest.TestCase):
         self.assertEqual(self.d.getPktPQT(), 3)
         self.d.setMdmModulation(MOD_4FSK)
         self.assertEqual(self.d.getMdmModulation(), MOD_4FSK)
-        
+
         self.d.setMdmChanSpc(chanspc=333e3)
         self.assertAlmostEqual(self.d.getMdmChanSpc(), 333e3, delta=300)
 
@@ -134,13 +134,13 @@ class TestApis(unittest.TestCase):
 
         self.d.setMdmSyncWord(word=0x7145, radiocfg=None)
         self.assertEqual(self.d.getMdmSyncWord(radiocfg=None), 0x7145)
-        
+
         self.d.setMdmSyncMode(syncmode=SYNCM_15_of_16, radiocfg=None)
         self.assertEqual(self.d.getMdmSyncMode(radiocfg=None), SYNCM_15_of_16)
 
         self.d.setMdmNumPreamble(preamble=MFMCFG1_NUM_PREAMBLE_4, radiocfg=None)
         self.assertEqual(self.d.getMdmNumPreamble(radiocfg=None), MFMCFG1_NUM_PREAMBLE_4)
-        
+
         self.d.setBSLimit(bslimit=3, radiocfg=None)
         self.assertEqual(self.d.getBSLimit(radiocfg=None), 3)
 
@@ -163,7 +163,7 @@ class TestApis(unittest.TestCase):
         self.d.setMACdata(fakemacdata)
         testmacdata = self.d.getMACdata()
         self.assertEqual(fakemacdata[3:], testmacdata[3:])
-        self.assertEqual(fakemacdata[0:2],  testmacdata[0:2])
+        self.assertEqual(fakemacdata[:2], testmacdata[:2])
         self.assertAlmostEqual(fakemacdata[2],  testmacdata[2], delta=10)     # MAC timer, ticks 20x per second
 
         self.d.setMACthreshold(value=24)

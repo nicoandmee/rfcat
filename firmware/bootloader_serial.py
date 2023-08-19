@@ -21,11 +21,8 @@ print(("[--- new serial number: %.4x ---]" % ser), file=sys.stderr)
 if WRITEBACK:
     open(".serial", 'wb').write(b"%.13x" % ser)
 
-sertxt = ''
 sertmp = "%.13x" % ser
-for c in sertmp:
-    sertxt += "%s\x00" % c
-
+sertxt = ''.join("%s\x00" % c for c in sertmp)
 ihc=IntelHex('CCBootloader/CCBootloader-rfcat-chronosdongle.hex')
 ihd=IntelHex('CCBootloader/CCBootloader-rfcat-donsdongle.hex')
 ihy=IntelHex('CCBootloader/CCBootloader-rfcat-ys1.hex')

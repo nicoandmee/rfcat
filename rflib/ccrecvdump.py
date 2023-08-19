@@ -5,13 +5,10 @@ from __future__ import print_function
 import sys
 import serial
 
-port = "ACM0"
-if len(sys.argv) > 1:
-    port = sys.argv.pop()
+port = sys.argv.pop() if len(sys.argv) > 1 else "ACM0"
+dport = f"/dev/tty{port}"
 
-dport = "/dev/tty" + port
-
-print("Opening serial port %s for listening..." % dport)
+print(f"Opening serial port {dport} for listening...")
 s=serial.Serial(dport, 115200)
 
 counter = 0

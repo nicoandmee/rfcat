@@ -170,29 +170,29 @@ class RenderArea(QtWidgets.QWidget):
             self._new_graph()
         elif self._graph.size() != self.size():
             self._new_graph()
-        
+
         painter = QtGui.QPainter(self._graph)
 
         try:
             painter.setRenderHint(QtGui.QPainter.Antialiasing)
             painter.fillRect(0, 0, self._graph.width(), self._graph.height(), QtGui.QColor(0, 0, 0, 10))
-            
+
             if self._frame:
                 frequency_axis, rssi_values = self._frame
-                
+
                 path_now = QtGui.QPainterPath()
                 path_max = QtGui.QPainterPath()
-                
+
                 bins = list(range(len(frequency_axis)))
                 x_axis = self._hz_to_x(frequency_axis)
                 y_now = self._dbm_to_y(rssi_values)
                 y_max = self._dbm_to_y(numpy.amax(self._persisted_frames, axis=0))
-                
+
                 # TODO: Wrapped Numpy types with float() to support old (<1.0) PySide API in Ubuntu 10.10
                 path_now.moveTo(float(x_axis[0]), float(y_now[0]))
                 for i in bins:
                     path_now.lineTo(float(x_axis[i]), float(y_now[i]))
-                
+
                 # TODO: Wrapped Numpy types with float() to support old (<1.0) PySide API in Ubuntu 10.10
                 path_max.moveTo(float(x_axis[0]), float(y_max[0]))
                 db_tmp = self._low_dbm
@@ -202,13 +202,13 @@ class RenderArea(QtWidgets.QWidget):
                     if self._y_to_dbm(y_max[i]) > db_tmp:
                         db_tmp = self._y_to_dbm(y_max[i])
                         max_max = i
-                
+
                 pen = QtGui.QPen()
                 pen.setBrush(Qt.white)
                 painter.setPen(pen)
                 painter.drawPath(path_now)
                 self._path_max = path_max
-                if not max_max == None and not self._hide_markers:
+                if max_max is not None and not self._hide_markers:
                     pen.setBrush(Qt.red)
                     pen.setStyle(Qt.DotLine)
                     painter.setPen(pen)
@@ -242,42 +242,43 @@ class RenderArea(QtWidgets.QWidget):
             painter.end()
             
     def _draw_reticle(self):
-        if self._reticle is None or (self._reticle.size() != self.size()):
-            self._new_reticle()
-            
-            dbm_lines = [QLineF(self._hz_to_x(self._low_frequency), self._dbm_to_y(dbm),
-                                self._hz_to_x(self._high_frequency), self._dbm_to_y(dbm))
-                         for dbm in numpy.arange(self._low_dbm, self._high_dbm, 20.0)]
-            dbm_labels = [(dbm, QPointF(self._hz_to_x(self._low_frequency) + 2, self._dbm_to_y(dbm) - 2))
-                          for dbm in numpy.arange(self._low_dbm, self._high_dbm, 20.0)]
-            
-            frequency_lines = [QLineF(self._hz_to_x(frequency), self._dbm_to_y(self._high_dbm),
-                                      self._hz_to_x(frequency), self._dbm_to_y(self._low_dbm))
-                               for frequency in numpy.arange(self._low_frequency, self._high_frequency, self._frequency_step * 20.0)]
-            frequency_labels = [(frequency, QPointF(self._hz_to_x(frequency) + 2, self._dbm_to_y(self._high_dbm) + 10))
-                                for frequency in numpy.arange(self._low_frequency, self._high_frequency, self._frequency_step * 10.0)]
-            
-            painter = QtGui.QPainter(self._reticle)
-            try:
-                painter.setRenderHint(QtGui.QPainter.Antialiasing)
-                
-                painter.setPen(Qt.blue)
-                
-                # TODO: Removed to support old (<1.0) PySide API in Ubuntu 10.10
-                #painter.drawLines(dbm_lines)
-                for dbm_line in dbm_lines: painter.drawLine(dbm_line)
-                # TODO: Removed to support old (<1.0) PySide API in Ubuntu 10.10
-                #painter.drawLines(frequency_lines)
-                for frequency_line in frequency_lines: painter.drawLine(frequency_line)
-                
-                painter.setPen(Qt.white)
-                for dbm, point in dbm_labels:
-                    painter.drawText(point, '%+.0f' % dbm)
-                for frequency, point in frequency_labels:
-                    painter.drawText(point, '%.02f' % (old_div(frequency, 1e6)))
-                    
-            finally:
-                painter.end()
+        if self._reticle is not None and self._reticle.size() == self.size():
+            return
+        self._new_reticle()
+
+        dbm_lines = [QLineF(self._hz_to_x(self._low_frequency), self._dbm_to_y(dbm),
+                            self._hz_to_x(self._high_frequency), self._dbm_to_y(dbm))
+                     for dbm in numpy.arange(self._low_dbm, self._high_dbm, 20.0)]
+        dbm_labels = [(dbm, QPointF(self._hz_to_x(self._low_frequency) + 2, self._dbm_to_y(dbm) - 2))
+                      for dbm in numpy.arange(self._low_dbm, self._high_dbm, 20.0)]
+
+        frequency_lines = [QLineF(self._hz_to_x(frequency), self._dbm_to_y(self._high_dbm),
+                                  self._hz_to_x(frequency), self._dbm_to_y(self._low_dbm))
+                           for frequency in numpy.arange(self._low_frequency, self._high_frequency, self._frequency_step * 20.0)]
+        frequency_labels = [(frequency, QPointF(self._hz_to_x(frequency) + 2, self._dbm_to_y(self._high_dbm) + 10))
+                            for frequency in numpy.arange(self._low_frequency, self._high_frequency, self._frequency_step * 10.0)]
+
+        painter = QtGui.QPainter(self._reticle)
+        try:
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+
+            painter.setPen(Qt.blue)
+
+            # TODO: Removed to support old (<1.0) PySide API in Ubuntu 10.10
+            #painter.drawLines(dbm_lines)
+            for dbm_line in dbm_lines: painter.drawLine(dbm_line)
+            # TODO: Removed to support old (<1.0) PySide API in Ubuntu 10.10
+            #painter.drawLines(frequency_lines)
+            for frequency_line in frequency_lines: painter.drawLine(frequency_line)
+
+            painter.setPen(Qt.white)
+            for dbm, point in dbm_labels:
+                painter.drawText(point, '%+.0f' % dbm)
+            for frequency, point in frequency_labels:
+                painter.drawText(point, '%.02f' % (old_div(frequency, 1e6)))
+
+        finally:
+            painter.end()
     
     def paintEvent(self, event):
         self._draw_graph()
@@ -456,11 +457,7 @@ if __name__ == '__main__':
     fbase = eval(sys.argv[2])
     fhigh = eval(sys.argv[3])
     fdelta = eval(sys.argv[4])
-    if len(sys.argv) > 5:
-        delay = eval(sys.argv[5])
-    else:
-        delay = .01
-
+    delay = eval(sys.argv[5]) if len(sys.argv) > 5 else .01
     window = Window(f, fbase, fhigh, fdelta, delay)
     #window = Window('../data.again', 902.0, 928.0, 3e-1)
     window.show()

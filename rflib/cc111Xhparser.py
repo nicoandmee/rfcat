@@ -53,7 +53,7 @@ def parseLines(lines):
         # find single-line comments
         slc = line.find("//")
         if (slc > -1):
-            line = line[:slc]         + "#" + line[slc+2:]
+            line = f"{line[:slc]}#{line[slc + 2:]}"
         # find /* */ comments
         mlcs = line.find("/*")
         mlce = line.find("*/")
@@ -61,9 +61,9 @@ def parseLines(lines):
             if (mlce>-1):           # both are in this line
                 if (mlce>mlcs):     # they are "together"
                     if (mlce >= len(line.strip())-3):
-                        line = line[:mlcs] + '#' + line[mlcs+2:mlce]
+                        line = f'{line[:mlcs]}#{line[mlcs + 2:mlce]}'
                     else:
-                        line = line[:mlcs] + '"""' + line[mlcs+2:mlce] + '"""' + line[mlce+2:]
+                        line = f'{line[:mlcs]}"""{line[mlcs + 2:mlce]}"""{line[mlce + 2:]}'
                 else:               # they are *not* together
                     line = line[mlce+2:mlcs]
             else:                   # only the beginning is in this line, treat like a single-line comment for now
@@ -89,14 +89,14 @@ def parseLines(lines):
                 continue
             name, value = pieces
             if "(" in name:
-                print(("SKIPPING: %s"%(line)), file=sys.stderr)
+                print(f"SKIPPING: {line}", file=sys.stderr)
                 continue                # skip adding "function" defines
             defs[name.strip()] = value.strip()
-            
+
         elif (line.startswith("SFR(")):
             endparen = line.find(")")
             if (endparen == -1):
-                print(("ERROR: SFR without end parens: '%s'"%(line)), file=sys.stderr)
+                print(f"ERROR: SFR without end parens: '{line}'", file=sys.stderr)
                 continue
             line = line[4:endparen].strip()
             name, value = line.split(",", 1)
@@ -104,7 +104,7 @@ def parseLines(lines):
         elif (line.startswith("SFRX(")):
             endparen = line.find(")")
             if (endparen == -1):
-                print(("ERROR: SFRX without end parens: '%s'"%(line)), file=sys.stderr)
+                print(f"ERROR: SFRX without end parens: '{line}'", file=sys.stderr)
                 continue
             line = line[5:endparen].strip()
             name, value = line.split(",", 1)
@@ -112,7 +112,7 @@ def parseLines(lines):
         elif (line.startswith("SBIT")):
             endparen = line.find(")")
             if (endparen == -1):
-                print(("ERROR: SBIT without end parens: '%s'"%(line)), file=sys.stderr)
+                print(f"ERROR: SBIT without end parens: '{line}'", file=sys.stderr)
                 continue
             line = line[5:endparen].strip()
             name, val1, val2 = line.split(",", 2)
@@ -123,12 +123,11 @@ def parseLines(lines):
 
 if __name__ == '__main__':
     defs = {}
-    defs.update(parseLines(open('../includes/cc1110-ext.h')))
+    defs |= parseLines(open('../includes/cc1110-ext.h'))
     defs.update(parseLines(open('../includes/cc1111.h')))
     defs.update(parseLines(open('/usr/share/sdcc/include/mcs51/cc1110.h')))
 
-    skeys = list(defs.keys())
-    skeys.sort()
+    skeys = sorted(defs.keys())
     out = ["%-30s = %s"%(key,defs[key]) for key in skeys]
 
     trueout = []

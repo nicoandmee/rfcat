@@ -28,7 +28,7 @@ class VStruct(vs_prims.v_base):
         '''
         Return the entire class name (including module path).
         '''
-        return '%s.%s' % (self.__module__, self._vs_name)
+        return f'{self.__module__}.{self._vs_name}'
 
     def vsParse(self, bytes, offset=0):
         """
@@ -48,9 +48,7 @@ class VStruct(vs_prims.v_base):
         Get back the byte sequence associated with this structure.
         """
         fmt = self.vsGetFormat()
-        r = []
-        for p in self.vsGetPrims():
-            r.append(p.vsGetFmtValue())
+        r = [p.vsGetFmtValue() for p in self.vsGetPrims()]
         return struct.pack(fmt, *r)
 
     def vsGetFormat(self):
@@ -75,8 +73,8 @@ class VStruct(vs_prims.v_base):
 
     def vsGetField(self, name):
         x = self._vs_values.get(name)
-        if x == None:
-            raise Exception("Invalid field: %s" % name)
+        if x is None:
+            raise Exception(f"Invalid field: {name}")
         return x
 
     def vsHasField(self, name):
@@ -159,11 +157,9 @@ class VStruct(vs_prims.v_base):
         for fname in self._vs_fields:
             x = self._vs_values.get(fname)
             off = offset + self.vsGetOffset(fname)
+            ret.append((off, indent, fname, x))
             if isinstance(x, VStruct):
-                ret.append((off, indent, fname, x))
                 ret.extend(x.vsGetPrintInfo(offset=off, indent=indent, top=False))
-            else:
-                ret.append((off, indent, fname, x))
         return ret
 
     def __len__(self):
@@ -173,34 +169,29 @@ class VStruct(vs_prims.v_base):
     def __getattr__(self, name):
         # Gotta do this for pickle issues...
         vsvals = self.__dict__.get("_vs_values")
-        if vsvals == None:
+        if vsvals is None:
             vsvals = {}
             self.__dict__["_vs_values"] = vsvals
         r = vsvals.get(name)
         if r is None:
             raise AttributeError(name)
-        if isinstance(r, vs_prims.v_prim):
-            return r.vsGetValue()
-        return r
+        return r.vsGetValue() if isinstance(r, vs_prims.v_prim) else r
 
     def __setattr__(self, name, value):
         # If we have this field, assign to it
         x = self._vs_values.get(name, None)
-        if x != None:
+        if x is None:
+                # If it's a vstruct type, create a new field
+            return (
+                self.vsAddField(name, value)
+                if isVstructType(value)
+                else object.__setattr__(self, name, value)
+            )
+        else:
             return self.vsSetField(name, value)
 
-        # If it's a vstruct type, create a new field
-        if isVstructType(value):
-            return self.vsAddField(name, value)
-
-        # Fail over to standard object attribute behavior
-        return object.__setattr__(self, name, value)
-
     def __iter__(self):
-        # Our iteration returns name,field pairs
-        ret = []
-        for name in self._vs_fields:
-            ret.append((name, self._vs_values.get(name)))
+        ret = [(name, self._vs_values.get(name)) for name in self._vs_fields]
         return iter(ret)
 
     def __repr__(self):
@@ -216,7 +207,7 @@ class VStruct(vs_prims.v_base):
             elif isinstance(field, vs_prims.v_prim):
                 rstr = repr(field)
             if reprmax != None and len(rstr) > reprmax:
-                rstr = rstr[:reprmax] + '...'
+                rstr = f'{rstr[:reprmax]}...'
             ret += "%.8x (%.2d)%s %s: %s\n" % (va+off, len(field), " "*(indent*2),name,rstr)
         return ret
 
@@ -250,7 +241,7 @@ def resolve(impmod, nameparts):
     m = impmod
     for nname in nameparts:
         m = getattr(m, nname, None)
-        if m == None:
+        if m is None:
             break
 
     return m
@@ -266,10 +257,7 @@ def getStructure(sname):
     """
     from . import defs as vs_defs
     x = resolve(vs_defs, sname.split("."))
-    if x != None:
-        return x()
-
-    return None
+    return x() if x != None else None
 
 def getModuleNames():
     from . import defs as vs_defs
@@ -279,7 +267,7 @@ def getStructNames(modname):
     from . import defs as vs_defs
     ret = []
     mod = resolve(vs_defs, modname)
-    if mod == None:
+    if mod is None:
         return ret
 
     for n in dir(mod):
